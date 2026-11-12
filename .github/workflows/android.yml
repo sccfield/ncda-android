@@ -10,18 +10,35 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Lister les fichiers (diagnostic)
-        run: ls -la
+      - name: Diagnostic
+        run: |
+          ls -la
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          ls "$ANDROID_HOME/platforms" || true
+          ls "$ANDROID_HOME/build-tools" || true
 
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      - uses: android-actions/setup-android@v3
-
-      - name: Installer le SDK Android 34
-        run: (yes | sdkmanager --licenses || true) && sdkmanager "platforms;android-34" "build-tools;34.0.0"
+      - name: Preparer le SDK Android (deja preinstalle)
+        run: |
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          echo "sdk.dir=$SDK" > local.properties
+          mkdir -p "$SDK/licenses"
+          printf "\n8933bad161af4178b1185d1a37fbf41ea5269c55\n24333f8a63b6825ea9c5514f83c2829b004d1fee\nd56f5187479451eabf01fb78af6dfcb131a6481e\n" > "$SDK/licenses/android-sdk-license"
+          printf "\n84831b9409646a918e30573bab4c9c91346d8abd\n" > "$SDK/licenses/android-sdk-preview-license"
+          SM="$SDK/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SM" ]; then
+            SM="$(find "$SDK/cmdline-tools" -name sdkmanager -type f 2>/dev/null | sort | tail -1)"
+          fi
+          if [ -n "$SM" ]; then
+            yes | "$SM" --licenses > /dev/null 2>&1 || true
+            "$SM" "platforms;android-34" "build-tools;34.0.0" > /dev/null 2>&1 || true
+          fi
+          echo "--- Plateformes disponibles ---"
+          ls "$SDK/platforms" || true
 
       - uses: gradle/actions/setup-gradle@v4
         with:
